@@ -5,6 +5,7 @@ __pycache__/
 *.py[cod]
 .DS_Store
 *.csv
+*.log
 skeny/
 # Lokální odkaz na velký disk se skeny (viz DATA.md)
 data-casopisy

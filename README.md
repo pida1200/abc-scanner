@@ -51,11 +51,21 @@ Klasifikace složky (výstup CSV na stdout):
 abc-scanner classify "/Volumes/1TB/casopisy/ABC/1985" > vysledky.csv
 ```
 
+Vyhledávání stránek podle předvolby **`f1`** (Formule 1, F1, týmy, Grand Prix …) — prohledá rekurzivně soubory, jejichž cesta obsahuje **`ABC`** (např. skeny pod `Komiks`):
+
+```bash
+export PATH="/opt/homebrew/bin:$PATH"
+python -u -m abc_scanner search "/Volumes/1TB/comix/Komiks" --preset f1 > f1-vysledky.csv
+```
+
+- Na macOS musí být **`tesseract`** v `PATH` (typicky Homebrew: `/opt/homebrew/bin`).
+- Výstup CSV se **průběžně zapisuje** (flush po hlavičce a každém nálezu); volitelně použij i **`python -u`** jako další pojistku pro nebufferovaný výstup.
+
 ## Struktura repozitáře
 
 ```
 ABC/
-  src/abc_scanner/   # CLI a logika
+  src/abc_scanner/   # CLI (list, ocr, classify, search)
   requirements.txt
   setup.py
   DATA.md            # kde jsou skeny na 1TB disku
