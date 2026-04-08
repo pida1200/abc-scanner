@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .classify import Classification, classify_text
 from .ocr import image_to_text, path_to_text, pdf_iter_pages_text
-from .search import F1_PRESET, find_matches, path_filter
+from .search import F1_PRESET, describe_abc_scan, find_matches, path_filter
 
 def _line_buffer_stdout_if_possible() -> None:
     """Při přesměrování do souboru ať CSV roste průběžně (ne až na konci)."""
@@ -28,6 +28,15 @@ def _flush_out() -> None:
         sys.stdout.flush()
     except BrokenPipeError:
         raise SystemExit(0)
+
+
+def _log_progress(current: int, total: int, path: Path) -> None:
+    label = describe_abc_scan(path)
+    print(
+        f"[abc-scanner] {current}/{total} Prohledávám {label}: {path.name}",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 SCAN_EXT = {
@@ -121,7 +130,9 @@ def cmd_search(args: argparse.Namespace) -> int:
     _flush_out()
 
     lang = args.lang
-    for p in paths:
+    total = len(paths)
+    for i, p in enumerate(paths, start=1):
+        _log_progress(i, total, p)
         try:
             if p.suffix.lower() == ".pdf":
                 pages = pdf_iter_pages_text(p, lang=lang)

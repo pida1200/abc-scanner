@@ -60,6 +60,7 @@ python -u -m abc_scanner search "/Volumes/1TB/comix/Komiks" --preset f1 > f1-vys
 
 - Na macOS musí být **`tesseract`** v `PATH` (typicky Homebrew: `/opt/homebrew/bin`).
 - Výstup CSV se **průběžně zapisuje** (flush po hlavičce a každém nálezu); volitelně použij i **`python -u`** jako další pojistku pro nebufferovaný výstup.
+- Na **stderr** se při běhu vypisuje, **který soubor ABC / jaký ročník** se zrovna prohledává (např. `ABC 1984-85`), takže log můžeš ukládat: `2> prubeh.log`.
 
 ## Struktura repozitáře
 

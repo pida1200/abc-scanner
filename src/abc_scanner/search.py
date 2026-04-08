@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 # Předvolby pro „modely / témata kolem Formule 1“ (OCR umí zkreslit text — držíme široké vzory)
 F1_PRESET: list[re.Pattern[str]] = [
@@ -22,13 +20,6 @@ F1_PRESET: list[re.Pattern[str]] = [
     re.compile(r"vůz\s+F1", re.IGNORECASE),
     re.compile(r"vuz\s+F1", re.IGNORECASE),
 ]
-
-
-@dataclass
-class Match:
-    path: str
-    page: int | None  # 1-based pro PDF; None u obrázku
-    matched: list[str]
 
 
 def find_matches(text: str, patterns: list[re.Pattern[str]]) -> list[str]:
@@ -51,3 +42,21 @@ def path_filter(path: Path, contains: str | None) -> bool:
         return True
     c = contains.lower()
     return c in str(path).lower()
+
+
+def describe_abc_scan(path: Path) -> str:
+    """Krátký popis pro log: např. „ABC 1984-85“ nebo „ABCS 2008“."""
+    s = str(path)
+    m = re.search(r"ABC\s+(\d{4}[-–]\d{2,4})", s, re.IGNORECASE)
+    if m:
+        return f"ABC {m.group(1)}"
+    m = re.search(r"ABCS[_\s.-]*(\d{4})", s, re.IGNORECASE)
+    if m:
+        return f"ABCS {m.group(1)}"
+    m = re.search(r"ABC[_\s.-]*(\d{4})[-–](\d{2,4})", s, re.IGNORECASE)
+    if m:
+        return f"ABC {m.group(1)}–{m.group(2)}"
+    for part in path.parts:
+        if re.fullmatch(r"\d{4}", part):
+            return f"ABC (složka {part})"
+    return "ABC (ročník v cestě nerozpoznán)"
