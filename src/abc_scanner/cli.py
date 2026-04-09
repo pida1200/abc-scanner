@@ -99,7 +99,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
 
     _line_buffer_stdout_if_possible()
     writer = csv.writer(sys.stdout, lineterminator="\n")
-    _safe_row(writer, ["cesta", "typ", "skore", "napovedy"])
+    _safe_row(writer, ["cesta", "typ", "skore", "kola", "napovedy"])
     _flush_out()
 
     total = len(paths)
@@ -112,18 +112,20 @@ def cmd_classify(args: argparse.Namespace) -> int:
             _flush_out()
             continue
         c: Classification = classify_text(text)
+        wheels = ""
         if args.vision:
             try:
                 if p.suffix.lower() == ".pdf":
                     vs = score_pdf_for_model(p)
                 else:
                     vs = score_image_for_model(p)
+                wheels = "yes" if getattr(vs, "wheels", False) else ""
                 c = merge_vision(c, vs.score, vs.hints, len((text or "").strip()))
             except Exception as e:
                 c.hints.append(f"vision:error:{e}")
         if not args.only_models or c.kind.value == "vystrihovanka":
             hints = ";".join(c.hints[:20])
-            _safe_row(writer, [str(p), c.kind.value, f"{c.score:.3f}", hints])
+            _safe_row(writer, [str(p), c.kind.value, f"{c.score:.3f}", wheels, hints])
             _flush_out()
 
     return 0

@@ -26,6 +26,7 @@ except ImportError:  # pragma: no cover
 class VisionScore:
     score: float
     hints: list[str]
+    wheels: bool = False
 
 
 def _require_cv() -> None:
@@ -106,6 +107,25 @@ def score_image_for_model(path: Path) -> VisionScore:
     elif circle_count >= 8:
         hints.append(f"vision:circles={circle_count}")
 
+    # Detekce kol: větší kruhy ve více kusech (typicky 2-12).
+    wheels = False
+    big = _resize_gray(gray, max_side=1100)
+    big_blur = cv2.GaussianBlur(big, (7, 7), 0)
+    wheel_circles = cv2.HoughCircles(
+        big_blur,
+        cv2.HOUGH_GRADIENT,
+        dp=1.2,
+        minDist=90,
+        param1=160,
+        param2=55,
+        minRadius=28,
+        maxRadius=160,
+    )
+    wheel_count = 0 if wheel_circles is None else int(wheel_circles.shape[1])
+    if 2 <= wheel_count <= 14:
+        wheels = True
+        hints.append(f"vision:wheels={wheel_count}")
+
     # Skórování: kombinace signálů, oříznuté do 0..1
     score = 0.0
     score += min(0.7, edge_density * 8.0)   # ~0.09 -> 0.72 cap
@@ -118,7 +138,10 @@ def score_image_for_model(path: Path) -> VisionScore:
         hints.append("vision:many_letters")
         score = min(score, 0.35)
 
-    return VisionScore(score, hints)
+    if wheels and score < 0.55:
+        score = min(1.0, score + 0.08)
+
+    return VisionScore(score, hints, wheels=wheels)
 
 
 def score_pdf_for_model(path: Path, max_pages: int = 8) -> VisionScore:
@@ -128,7 +151,7 @@ def score_pdf_for_model(path: Path, max_pages: int = 8) -> VisionScore:
         raise RuntimeError("Pro PDF vizuální detekci nainstaluj pymupdf (PyMuPDF).")
 
     doc = fitz.open(path)
-    best = VisionScore(0.0, [])
+    best = VisionScore(0.0, [], wheels=False)
     try:
         pages = min(len(doc), max_pages)
         for i in range(pages):
@@ -143,7 +166,11 @@ def score_pdf_for_model(path: Path, max_pages: int = 8) -> VisionScore:
             # rychlé skóre jen z edge density (PDF může být těžké)
             score = max(0.0, min(1.0, edge_density * 18.0))
             if score > best.score:
-                best = VisionScore(score, [f"vision:pdf_page={i+1}", f"vision:edges={edge_density:.3f}"])
+                best = VisionScore(
+                    score,
+                    [f"vision:pdf_page={i+1}", f"vision:edges={edge_density:.3f}"],
+                    wheels=False,
+                )
     finally:
         doc.close()
 
