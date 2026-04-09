@@ -51,11 +51,11 @@ Klasifikace složky (výstup CSV na stdout):
 abc-scanner classify "/Volumes/1TB/casopisy/ABC/1985" > vysledky.csv
 ```
 
-Vyhledávání stránek podle předvolby **`f1`** (Formule 1, F1, týmy, Grand Prix …) — prohledá rekurzivně soubory, jejichž cesta obsahuje **`ABC`** (např. skeny pod `Komiks`):
+Vyhledávání stránek podle předvolby **`f1`** (Formule 1, F1, týmy, Grand Prix …) — prohledá rekurzivně skeny v adresáři `casopisy` a zpracuje jen soubory, jejichž cesta obsahuje **`ABC`**:
 
 ```bash
 export PATH="/opt/homebrew/bin:$PATH"
-python -u -m abc_scanner search "/Volumes/1TB/comix/Komiks" --preset f1 > f1-vysledky.csv
+python -u -m abc_scanner search "/Volumes/1TB/casopisy" --preset f1 > f1-vysledky.csv
 ```
 
 - Na macOS musí být **`tesseract`** v `PATH` (typicky Homebrew: `/opt/homebrew/bin`).

@@ -10,11 +10,7 @@ Typická cesta na macOS po připojení disku:
 /Volumes/1TB/casopisy/
 ```
 
-U aktuálního nastavení můžou být skeny časopisu i jinde na stejném disku, např.:
-
-```text
-/Volumes/1TB/comix/Komiks/
-```
+Skeny drž v jednom kořeni (doporučeno `casopisy`), aby šly jednoduše prohledávat a dávkově zpracovávat.
 
 Pokud máš disk připojený jinak nebo jiné jméno svazku, uprav cestu (např. `/Volumes/Externi/casopisy`).
 
