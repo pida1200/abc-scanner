@@ -8,9 +8,10 @@ import io
 import sys
 from pathlib import Path
 
-from .classify import Classification, classify_text
+from .classify import Classification, classify_text, merge_vision
 from .ocr import image_to_text, path_to_text, pdf_iter_pages_text
 from .search import F1_PRESET, describe_abc_scan, find_matches, path_filter
+from .vision import score_image_for_model, score_pdf_for_model
 
 def _line_buffer_stdout_if_possible() -> None:
     """Při přesměrování do souboru ať CSV roste průběžně (ne až na konci)."""
@@ -26,6 +27,13 @@ def _line_buffer_stdout_if_possible() -> None:
 def _flush_out() -> None:
     try:
         sys.stdout.flush()
+    except BrokenPipeError:
+        raise SystemExit(0)
+
+
+def _safe_row(writer: csv.writer, row: list[str]) -> None:
+    try:
+        writer.writerow(row)
     except BrokenPipeError:
         raise SystemExit(0)
 
@@ -83,26 +91,40 @@ def cmd_ocr(args: argparse.Namespace) -> int:
 def cmd_classify(args: argparse.Namespace) -> int:
     root = Path(args.slozka).resolve()
     paths = _collect_scans(root)
+    filt = None if args.all_files else args.path_contains
+    paths = [p for p in paths if path_filter(p, filt)]
     if not paths:
         print("Nenalezeny žádné soubory (JPG/PNG/…/PDF).", file=sys.stderr)
         return 1
 
     _line_buffer_stdout_if_possible()
     writer = csv.writer(sys.stdout, lineterminator="\n")
-    writer.writerow(["cesta", "typ", "skore", "napovedy"])
+    _safe_row(writer, ["cesta", "typ", "skore", "napovedy"])
     _flush_out()
 
-    for p in paths:
+    total = len(paths)
+    for i, p in enumerate(paths, start=1):
+        _log_progress(i, total, p)
         try:
             text = path_to_text(p, lang=args.lang)
         except Exception as e:
-            writer.writerow([str(p), "chyba", "", str(e)])
+            _safe_row(writer, [str(p), "chyba", "", str(e)])
             _flush_out()
             continue
         c: Classification = classify_text(text)
-        hints = ";".join(c.hints[:20])
-        writer.writerow([str(p), c.kind.value, f"{c.score:.3f}", hints])
-        _flush_out()
+        if args.vision:
+            try:
+                if p.suffix.lower() == ".pdf":
+                    vs = score_pdf_for_model(p)
+                else:
+                    vs = score_image_for_model(p)
+                c = merge_vision(c, vs.score, vs.hints, len((text or "").strip()))
+            except Exception as e:
+                c.hints.append(f"vision:error:{e}")
+        if not args.only_models or c.kind.value == "vystrihovanka":
+            hints = ";".join(c.hints[:20])
+            _safe_row(writer, [str(p), c.kind.value, f"{c.score:.3f}", hints])
+            _flush_out()
 
     return 0
 
@@ -126,7 +148,7 @@ def cmd_search(args: argparse.Namespace) -> int:
 
     _line_buffer_stdout_if_possible()
     writer = csv.writer(sys.stdout, lineterminator="\n")
-    writer.writerow(["soubor", "strana", "shody"])
+    _safe_row(writer, ["soubor", "strana", "shody"])
     _flush_out()
 
     lang = args.lang
@@ -139,16 +161,16 @@ def cmd_search(args: argparse.Namespace) -> int:
                 for page_no, text in pages:
                     hits = find_matches(text, patterns)
                     if hits:
-                        writer.writerow([str(p), page_no, ";".join(hits)])
+                        _safe_row(writer, [str(p), str(page_no), ";".join(hits)])
                         _flush_out()
             else:
                 text = image_to_text(p, lang=lang)
                 hits = find_matches(text, patterns)
                 if hits:
-                    writer.writerow([str(p), "", ";".join(hits)])
+                    _safe_row(writer, [str(p), "", ";".join(hits)])
                     _flush_out()
         except Exception as e:
-            writer.writerow([str(p), "", f"CHYBA:{e}"])
+            _safe_row(writer, [str(p), "", f"CHYBA:{e}"])
             _flush_out()
 
     return 0
@@ -170,6 +192,23 @@ def main() -> None:
     p_cls = sub.add_parser("classify", help="Klasifikovat složku skenů JPG/PNG/…/PDF (CSV)")
     p_cls.add_argument("slozka", type=str)
     p_cls.add_argument("--lang", default="ces+eng")
+    p_cls.add_argument("--vision", action="store_true", help="Použít i vizuální heuristiky (OpenCV)")
+    p_cls.add_argument(
+        "--path-contains",
+        default="ABC",
+        metavar="TEXT",
+        help="Zpracovat jen soubory, jejichž cesta obsahuje TEXT (výchozí: ABC)",
+    )
+    p_cls.add_argument(
+        "--all-files",
+        action="store_true",
+        help="Nefiltrovat podle cesty (všechny JPG/PNG/PDF ve složce — může být velmi pomalé)",
+    )
+    p_cls.add_argument(
+        "--only-models",
+        action="store_true",
+        help="Vypsat jen stránky, které vyšly jako vystrihovanka",
+    )
     p_cls.set_defaults(func=cmd_classify)
 
     p_search = sub.add_parser(

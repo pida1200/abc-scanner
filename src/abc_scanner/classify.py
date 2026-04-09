@@ -95,3 +95,33 @@ def classify_text(text: str) -> Classification:
     if f_score >= v_score and f_score >= 0.2:
         return Classification(PageKind.FORMULAR, f_score, hints)
     return Classification(PageKind.JINE, max(v_score, f_score, 0.0), hints)
+
+
+def merge_vision(
+    text_cls: Classification,
+    vision_score: float,
+    vision_hints: list[str],
+    text_len: int,
+) -> Classification:
+    """Zkombinuje OCR heuristiky s vizuálním skóre.
+
+    Vizuální heuristiky jsou primárně pro vystřihovánky/modely.
+    """
+    hints = list(text_cls.hints)
+    hints.extend(vision_hints)
+
+    # Pokud je na stránce hodně textu (OCR), je to typicky článek, ne vystřihovánka.
+    # V takovém případě nedovolíme, aby samotný vizuál přepnul typ.
+    if text_len >= 800:
+        return Classification(text_cls.kind, max(text_cls.score, vision_score * 0.4), hints)
+
+    # Pokud vizuál silně naznačuje model, přepneme na vystrihovanka.
+    if vision_score >= 0.55:
+        return Classification(PageKind.VYSTRIHOVANKA, max(text_cls.score, vision_score), hints)
+
+    # Pokud text už říká vystrihovanka/formular, necháme.
+    if text_cls.kind != PageKind.JINE:
+        return Classification(text_cls.kind, max(text_cls.score, vision_score * 0.8), hints)
+
+    # Jinak jen zvedneme skóre "jine" pro informaci.
+    return Classification(PageKind.JINE, max(text_cls.score, vision_score * 0.6), hints)

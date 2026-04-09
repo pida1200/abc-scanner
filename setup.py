@@ -11,6 +11,8 @@ setup(
         "pytesseract>=0.3.10",
         "Pillow>=10.0.0",
         "pymupdf>=1.24.0",
+        "opencv-python-headless>=4.9.0.0",
+        "numpy>=1.23.0",
     ],
     entry_points={
         "console_scripts": [
